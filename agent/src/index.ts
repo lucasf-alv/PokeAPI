@@ -33,13 +33,7 @@ const mcpServer = new MCPServerStdio({
 });
 
 const AgentResponse = z.object({
-  view: z.enum([
-    "pokemon",
-    "comparison",
-    "evolution",
-    "type",
-    "other",
-  ]),
+  view: z.enum(["pokemon", "comparison", "evolution", "type", "other"]),
 
   answer: z.string(),
 
@@ -59,11 +53,16 @@ MCP necessárias e retornar uma resposta estruturada para uma
 interface web.
 
 REGRAS:
-
 1. Perguntas sobre um Pokémon específico:
+
    - Use get_pokemon.
    - view deve ser "pokemon".
    - pokemonNames deve conter o Pokémon.
+   - answer deve sempre conter uma explicação em português sobre o Pokémon.
+   - Baseie a explicação somente nos dados retornados pela tool.
+   - Nunca deixe answer vazio.
+
+
 
 2. Comparações entre Pokémon:
    - Use get_pokemon para buscar TODOS os Pokémon envolvidos.
@@ -136,10 +135,7 @@ answer:
 "Posso responder apenas perguntas relacionadas a Pokémon."
 `,
 
-  model: new OpenAIChatCompletionsModel(
-    openai,
-    process.env.OLLAMA_MODEL!,
-  ),
+  model: new OpenAIChatCompletionsModel(openai, process.env.OLLAMA_MODEL!),
 
   mcpServers: [mcpServer],
 
@@ -147,16 +143,11 @@ answer:
 });
 
 async function getPokemonFromMcp(name: string) {
-  const result = await mcpServer.callTool(
-    "get_pokemon",
-    {
-      name,
-    },
-  );
+  const result = await mcpServer.callTool("get_pokemon", {
+    name,
+  });
 
-  const textContent = result.find(
-    (content) => content.type === "text",
-  );
+  const textContent = result.find((content) => content.type === "text");
 
   if (!textContent || textContent.type !== "text") {
     throw new Error("Resposta inválida do MCP Server.");
@@ -174,35 +165,22 @@ app.get("/health", (_req, res) => {
 
 app.get("/pokemon", async (req, res) => {
   try {
-    const limit = Math.min(
-      Number(req.query.limit) || 20,
-      20,
-    );
+    const limit = Math.min(Number(req.query.limit) || 20, 20);
 
-    const offset = Math.max(
-      Number(req.query.offset) || 0,
-      0,
-    );
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
 
-    const result = await mcpServer.callTool(
-      "get_pokemon_page",
-      {
-        limit,
-        offset,
-      },
-    );
+    const result = await mcpServer.callTool("get_pokemon_page", {
+      limit,
+      offset,
+    });
 
-    const textContent = result.find(
-      (content) => content.type === "text",
-    );
+    const textContent = result.find((content) => content.type === "text");
 
     if (!textContent || textContent.type !== "text") {
       throw new Error("Resposta inválida do MCP Server.");
     }
 
-    return res.json(
-      JSON.parse(String(textContent.text)),
-    );
+    return res.json(JSON.parse(String(textContent.text)));
   } catch (error) {
     console.error("Erro em GET /pokemon:", error);
 
@@ -214,18 +192,13 @@ app.get("/pokemon", async (req, res) => {
 
 app.get("/pokemon/:name", async (req, res) => {
   try {
-    const pokemon = await getPokemonFromMcp(
-      req.params.name,
-    );
+    const pokemon = await getPokemonFromMcp(req.params.name);
 
     return res.json({
       pokemon,
     });
   } catch (error) {
-    console.error(
-      `Erro em GET /pokemon/${req.params.name}:`,
-      error,
-    );
+    console.error(`Erro em GET /pokemon/${req.params.name}:`, error);
 
     return res.status(500).json({
       error: "Erro ao buscar Pokémon.",
@@ -248,9 +221,7 @@ app.post("/chat", async (req, res) => {
     const output = result.finalOutput;
 
     if (!output) {
-      throw new Error(
-        "O agente não retornou uma resposta.",
-      );
+      throw new Error("O agente não retornou uma resposta.");
     }
 
     if (output.view === "other") {
@@ -262,9 +233,7 @@ app.post("/chat", async (req, res) => {
     }
 
     const pokemon = await Promise.all(
-      output.pokemonNames.map((name) =>
-        getPokemonFromMcp(name),
-      ),
+      output.pokemonNames.map((name) => getPokemonFromMcp(name)),
     );
 
     return res.json({
@@ -285,9 +254,7 @@ async function start() {
   await mcpServer.connect();
 
   app.listen(PORT, () => {
-    console.log(
-      `Agent API rodando em http://localhost:${PORT}`,
-    );
+    console.log(`Agent API rodando em http://localhost:${PORT}`);
   });
 }
 
@@ -303,10 +270,7 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
 start().catch((error) => {
-  console.error(
-    "Erro ao iniciar o Agent:",
-    error,
-  );
+  console.error("Erro ao iniciar o Agent:", error);
 
   process.exit(1);
 });
